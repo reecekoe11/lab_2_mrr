@@ -1,0 +1,188 @@
+---
+title: "data_exploration"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr) 
+library(corrplot)
+library(plotly)
+library(ggplot2)
+library(lubridate)
+library(tidyverse)
+library(lubridate)
+library(glue)
+library(leaflet)
+```
+
+``` {r  importing data warnings=FALSE} 
+wd <- setwd("~/Desktop/lab_2_mrr")
+data_NYC <- read_csv(file="data/listingsNY.csv")
+summary(data_NYC)
+
+
+glimpse(data_NYC)
+dim(data_NYC)
+summary(is.na(data_NYC))
+```
+
+``` {r Distribution of price}
+unique(data_NYC$neighbourhood_group)
+unique(data_NYC$neighbourhood)
+
+ggplot(data_NYC, aes(price)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
+  geom_density(alpha = 0.2, fill = "purple") +
+  ggtitle("Distribution of price",
+          subtitle = "The distribution is very skewed") +
+  theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_vline(xintercept = round(mean(data_NYC$price), 2), size = 2, linetype = 3)
+
+```
+
+``` {r Distribution of price with log tranform warning=FALSE}
+
+#Since the original distribution is very skewed, logarithmic transformation can be used to gain better insight into data.
+ggplot(data_NYC, aes(price)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
+  geom_density(alpha = 0.2, fill = "purple") +
+  ggtitle("Transformed distribution of price",
+          subtitle = expression("With" ~'log'[10] ~ "transformation of x-axis")) +
+  #theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_vline(xintercept = round(mean(data_NYC$price), 2), size = 2, linetype = 3) +
+  scale_x_log10() +
+  annotate("text", x = 1800, y = 0.75,label = paste("Mean price = ", paste0(round(mean(data_NYC$price), 2), "$")),
+           color =  "#32CD32", size = 8)
+
+```
+
+
+``` {r Neighbourhoods}
+
+airbnb_by_neighbourhood <- data_NYC %>%
+  group_by(neighbourhood_group) %>%
+  summarise(price = round(mean(price), 2))
+
+
+ggplot(data_NYC, aes(price)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
+  geom_density(alpha = 0.2, fill = "purple") +
+  ggtitle("Transformed distribution of price\n by neighbourhood groups",
+          subtitle = expression("With" ~'log'[10] ~ "transformation of x-axis")) +
+  geom_vline(data = airbnb_by_neighbourhood, aes(xintercept = price), size = 2, linetype = 3) +
+  geom_text(data = airbnb_by_neighbourhood,y = 1.5, aes(x = price + 1400, label = paste("Mean  = ",price)), color = "darkgreen", size = 4) +
+  facet_wrap(~neighbourhood_group) +
+  scale_x_log10() 
+
+```
+``` {r Neighbourhoods average}
+
+#Above Average Price Objects by Neighourhood Areas
+data_NYC %>% filter(price >= mean(price)) %>% group_by(neighbourhood_group, room_type) %>% tally %>% 
+  ggplot(aes(reorder(neighbourhood_group,desc(n)), n, fill = room_type)) +
+  xlab(NULL) +
+  ylab("Number of objects") +
+  ggtitle("Number of above average price objects",
+          subtitle = "Most of them are entire homes or apartments") +
+  geom_bar(stat = "identity") 
+
+
+```
+``` {r Number of listings per neighbourhood}
+data_NYC %>% group_by(neighbourhood_group) %>% tally() %>% 
+  ggplot(aes(x = reorder(neighbourhood_group, n), n)) +
+  geom_bar(stat = "identity", fill = "purple") +
+  ggtitle("Number of objects by neighbourhood group") +
+  geom_text(aes(x = neighbourhood_group, y = 1, label = paste0(n),
+                colour = ifelse(neighbourhood_group %in%
+                                  c("Manhattan", "Brooklyn", 
+                                    "Queens"), '1', '2')),
+            hjust=-1.5, vjust=.5, size = 4, 
+            fontface = 'bold') +
+  coord_flip() +
+  scale_color_manual(values=c("white","black"), guide = F)
+
+
+
+pal <- colorFactor(palette = c("red", "green", "blue", "purple", "yellow"), domain = data_NYC$neighbourhood_group)
+```
+
+``` {r interactive map}
+leaflet(data = data_NYC) %>% addProviderTiles(providers$CartoDB.DarkMatterNoLabels) %>%  addCircleMarkers(~longitude, ~latitude, color = ~pal(neighbourhood_group), weight = 1, radius=1, fillOpacity = 0.1, opacity = 0.1,
+                                                                                                        label = paste("Name:", data_NYC$name)) %>% 
+  addLegend("bottomright", pal = pal, values = ~neighbourhood_group,
+            title = "Neighbourhood groups",
+            opacity = 1
+  )
+#Manhattan has the highest number of objects while it’s the smallest neighborhood 
+#group by area. That can be explained by the fact that it’s the most popular 
+#neighbourhood group with biggest GDP.
+
+
+```
+
+``` {r statistical summarys of neighborhoods}
+# Statistical summary of pricing and property type by neighborhood group
+data_NYC %>%
+  group_by(neighbourhood_group) %>%
+  summarize(min_price = min(price), max_price = max(price), avg_price = mean(price))
+ 
+# Statistical summary of pricing by property type and neighborhood group
+data_NYC %>%
+  group_by(neighbourhood_group, room_type) %>%
+  summarize(min_price = min(price), max_price = max(price), avg_price = mean(price))
+
+# Observing number of properties by neighborhood group
+n_airbnb_by_area <- data_NYC %>%
+  group_by(neighbourhood_group) %>%
+  count(room_type)
+```
+
+``` {r Types of properties by neighborhood}
+
+ggplot(n_airbnb_by_area, aes(x = neighbourhood_group, y = n, fill = room_type)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  theme_classic() +
+  labs(title = "Number of Airbnb properties in NYC by borough", subtitle = "", x = "Neighborhood", y = "Number of properties") +
+  theme(plot.title = element_text(face = "bold"))
+
+```
+
+``` {r pricing}
+
+# Observing prices by property type and neighborhood group
+ggplot(data_NYC) +
+  geom_point(aes(x = neighbourhood_group, y = price, color = room_type)) +
+  theme_classic() +
+  labs(title = "Airbnb pricing in NYC", subtitle = "Most expensive tend to be entire homes in Brooklyn & Manhattan", x = "Neighborhood", y = "Price") +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+```{r price and number of review}
+
+#Relation between price and number of reviews
+ggplot(data_NYC, aes(number_of_reviews, price)) +
+  theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_point(aes(size = price), alpha = 0.05, color = "red") +
+  xlab("Number of reviews") +
+  ylab("Price") +
+  ggtitle("Relationship between number of reviews",
+          subtitle = "The most expensive objects have small number of reviews (or 0)")
+```
+
+``` {r Most listings by neighborhood}
+#Top 10 Neighborhood
+data_NYC %>%
+  group_by(neighbourhood) %>%
+  dplyr::summarize(num_listings = n(), 
+                   borough = unique(neighbourhood_group)) %>%
+  top_n(n = 10, wt = num_listings) %>%
+  ggplot(aes(x = fct_reorder(neighbourhood, num_listings), 
+             y = num_listings, fill = borough)) +
+  geom_col() +
+  coord_flip() +
+  theme(legend.position = "bottom") +
+  labs(title = "Top 10 neighborhoods by no. of listings",
+       x = "Neighborhood", y = "No. of listings")
+```

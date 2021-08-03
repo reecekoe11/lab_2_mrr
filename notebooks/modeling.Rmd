@@ -1,0 +1,61 @@
+---
+title: "modeling"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr) 
+library(corrplot)
+library(plotly)
+library(ggplot2)
+library(lubridate)
+library(tidyverse)
+library(lubridate)
+library(glue)
+library(leaflet)
+library(readxl)
+```
+
+``` {r data wrangling}
+wd <- setwd("~/Desktop/lab_2_mrr")
+data_NYC <- read_csv(file="data/listingsNY.csv")
+combined_reviews <- read_excel("data/combined_reviews.xlsx")
+combined_db <- read_excel("data/combined_db.xlsx")
+combined_covid <- read_excel("data/combined_covid.xlsx")
+
+```
+
+``` {r getting data frame}
+setwd("~/Desktop/lab_2_mrr")
+listings <- read_csv(file="data/listings_NY.csv")
+reviews <- read_csv(file="data/reviews_NY.csv")
+
+listings_columns_to_keep <- c("id", "host_is_superhost", "accommodates", "price", "availability_30", "availability_60", "availability_90", "availability_365", "last_review", "review_scores_rating", "review_scores_accuracy", "review_scores_cleanliness", "review_scores_checkin", "review_scores_communication", "review_scores_location", "review_scores_value")
+
+reviews_columns_to_keep <- c("listing_id", "date")
+
+listings_subset <- subset(listings, select=listings_columns_to_keep)
+reviews_subset <- subset(reviews, select=reviews_columns_to_keep)
+
+reviews_summer <- reviews_subset[reviews_subset$date > "2021-03-01",]
+reviews_final <- reviews_summer %>% count(listing_id)
+colnames(reviews_final) <- c("id", "num_reviews")
+list_review_combined <- left_join(listings_subset, reviews_final, by='id')
+final_df <- list_review_combined[complete.cases(list_review_combined$num_reviews),]
+head(final_df)
+```
+
+``` {r covid data}
+setwd("~/Desktop/lab_2_mrr")
+all_covid_data <- read_csv(file='data/us-counties.csv')
+NY_covid_data <- all_covid_data[all_covid_data$state == "New York",]
+summer_NY_data <- NY_covid_data[NY_covid_data$date > "2021-03-01",]
+```
+
+
+
+``` {r modeling}
+model <- lm(availability_30 ~ price + host_is_superhost + accommodates + review_scores_rating + review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value + num_reviews, final_df)
+
+```
