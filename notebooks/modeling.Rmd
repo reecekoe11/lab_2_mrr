@@ -18,44 +18,125 @@ library(readxl)
 ```
 
 ``` {r data wrangling}
-wd <- setwd("~/Desktop/lab_2_mrr")
-data_NYC <- read_csv(file="data/listingsNY.csv")
-combined_reviews <- read_excel("data/combined_reviews.xlsx")
-combined_db <- read_excel("data/combined_db.xlsx")
-combined_covid <- read_excel("data/combined_covid.xlsx")
+# print(getwd())
+# wd <- setwd("~/Desktop/lab_2_mrr")
+# #data_NYC <- read_csv(file="data/listingsNY.csv")
+# combined_reviews <- read_excel("data/combined_reviews.xlsx")
+# combined_db <- read_excel("data/combined_db.xlsx")
+# combined_covid <- read_excel("data/combined_covid.xlsx")
 
+```
+
+``` {r creating functions}
+combine_listings_and_reviews <- function(listing_file_name, reviews_file_name){
+  listings <- read_csv(file=glue('data/{listing_file_name}'))
+  reviews <- read_csv(file=glue('data/{reviews_file_name}'))
+  
+
+  listings_columns_to_keep <- c("id", "last_scraped", "host_is_superhost", "accommodates", "price", "availability_30", "availability_60", "availability_90", "availability_365", "last_review", "review_scores_rating", "review_scores_accuracy", "review_scores_cleanliness", "review_scores_checkin", "review_scores_communication", "review_scores_location", "review_scores_value")
+  
+  reviews_columns_to_keep <- c("listing_id", "date")
+  
+  listings_subset <- subset(listings, select=listings_columns_to_keep)
+  reviews_subset <- subset(reviews, select=reviews_columns_to_keep)
+  
+  reviews_summer <- reviews_subset[reviews_subset$date > "2021-03-01",]
+  
+  
+  reviews_final <- reviews_summer %>% count(listing_id)
+  colnames(reviews_final) <- c("id", "num_reviews")
+  list_review_combined <- left_join(listings_subset, reviews_final, by='id')
+  final_df <- list_review_combined[complete.cases(list_review_combined$num_reviews),]
+  final_df$price_numeric <- as.numeric(str_remove_all(final_df$price, "[$]"))
+  return (final_df)
+}
 ```
 
 ``` {r getting data frame}
 setwd("~/Desktop/lab_2_mrr")
-listings <- read_csv(file="data/listings_NY.csv")
-reviews <- read_csv(file="data/reviews_NY.csv")
 
-listings_columns_to_keep <- c("id", "host_is_superhost", "accommodates", "price", "availability_30", "availability_60", "availability_90", "availability_365", "last_review", "review_scores_rating", "review_scores_accuracy", "review_scores_cleanliness", "review_scores_checkin", "review_scores_communication", "review_scores_location", "review_scores_value")
+LA_df <- combine_listings_and_reviews('listings_LA.csv', 'reviews_LA.csv')
+NY_df <- combine_listings_and_reviews('listings_NY.csv', 'reviews_NY.csv')
 
-reviews_columns_to_keep <- c("listing_id", "date")
+LA_df$state = 'CA'
+NY_df$state = 'NY'
 
-listings_subset <- subset(listings, select=listings_columns_to_keep)
-reviews_subset <- subset(reviews, select=reviews_columns_to_keep)
-
-reviews_summer <- reviews_subset[reviews_subset$date > "2021-03-01",]
-reviews_final <- reviews_summer %>% count(listing_id)
-colnames(reviews_final) <- c("id", "num_reviews")
-list_review_combined <- left_join(listings_subset, reviews_final, by='id')
-final_df <- list_review_combined[complete.cases(list_review_combined$num_reviews),]
-head(final_df)
+full_df <- rbind(LA_df, NY_df)
 ```
 
 ``` {r covid data}
 setwd("~/Desktop/lab_2_mrr")
 all_covid_data <- read_csv(file='data/us-counties.csv')
-NY_covid_data <- all_covid_data[all_covid_data$state == "New York",]
-summer_NY_data <- NY_covid_data[NY_covid_data$date > "2021-03-01",]
+CA_counties <- c("Los Angeles", "Ventura", "Orange", "San Bernardino", "Santa Barbara", "San Diego", "Riverside")
+NY_counties <- c("New York City", "Westchester", "Suffolk")
+CA_covid_data <- all_covid_data[all_covid_data$county %in% CA_counties & all_covid_data$state == 'California',]
+NY_covid_data <- all_covid_data[all_covid_data$county %in% NY_counties & all_covid_data$state == 'New York',]
+CA_summer_data <- CA_covid_data[CA_covid_data$date >  "2021-02-27",]
+NY_summer_data <- NY_covid_data[NY_covid_data$date >  "2021-02-27",]
+
+CA_cases_by_day <- CA_summer_data %>% 
+                                    group_by(state, date) %>% 
+                                    summarise(total_cases=sum(cases),
+                                              total_deaths=sum(deaths))
+NY_cases_by_day <- NY_summer_data %>% 
+                                    group_by(state, date) %>% 
+                                    summarise(total_cases=sum(cases),
+                                              total_deaths=sum(deaths))
+CA_COVID_data <- CA_cases_by_day %>%
+    mutate(new_cases = total_cases - lag(total_cases),
+           new_deaths = total_deaths - lag(total_deaths),
+           .keep="all") %>% na.omit()
+
+
+NY_COVID_data <- NY_cases_by_day %>%
+    mutate(new_cases = total_cases - lag(total_cases),
+           new_deaths = total_deaths - lag(total_deaths),
+           .keep="all") %>% na.omit()
+
 ```
 
+``` {r combine AirBnb and COVID data}
+
+distinct_scraped <- distinct(full_df, last_scraped, .keep_all=TRUE)
+uni_scraped <- distinct_scraped$last_scraped
+cases_30 <- c()
+deaths_30 <- c()
+cases_60 <- c()
+deaths_60 <- c()
+cases_90 <- c()
+deaths_90 <- c()
+
+for(i in 1:nrow(distinct_scraped)) {   
+  last_scraped_day <- distinct_scraped[i, 'last_scraped']
+  if (distinct_scraped[i,'state'] == "CA"){
+    cases_30 <- c(cases_30, sum(subset(CA_COVID_data, (date > last_scraped_day - 31 & date < last_scraped_day + 1))$new_cases))
+    deaths_30 <- c(deaths_30, sum(subset(CA_COVID_data, (date > last_scraped_day - 31 & date < last_scraped_day + 1))$new_deaths))
+    cases_60 <- c(cases_60, sum(subset(CA_COVID_data, (date > last_scraped_day - 61 & date < last_scraped_day + 1))$new_cases))
+    deaths_60 <- c(deaths_60, sum(subset(CA_COVID_data, (date > last_scraped_day - 61 & date < last_scraped_day + 1))$new_deaths))
+    cases_90 <- c(cases_90, sum(subset(CA_COVID_data, (date > last_scraped_day - 91 & date < last_scraped_day + 1))$new_cases))
+    deaths_90 <- c(deaths_90, sum(subset(CA_COVID_data, (date > last_scraped_day - 91 & date < last_scraped_day + 1))$new_deaths))
+  } else if (distinct_scraped[i,'state'] == "NY"){
+    cases_30 <- c(cases_30, sum(subset(NY_COVID_data, (date > last_scraped_day - 31 & date < last_scraped_day + 1))$new_cases))
+    deaths_30 <- c(deaths_30, sum(subset(NY_COVID_data, (date > last_scraped_day - 31 & date < last_scraped_day + 1))$new_deaths))
+    cases_60 <- c(cases_60, sum(subset(NY_COVID_data, (date > last_scraped_day - 61 & date < last_scraped_day + 1))$new_cases))
+    deaths_60 <- c(deaths_60, sum(subset(NY_COVID_data, (date > last_scraped_day - 61 & date < last_scraped_day + 1))$new_deaths))
+    cases_90 <- c(cases_90, sum(subset(NY_COVID_data, (date > last_scraped_day - 91 & date < last_scraped_day + 1))$new_cases))
+    deaths_90 <- c(deaths_90, sum(subset(NY_COVID_data, (date > last_scraped_day - 91 & date < last_scraped_day + 1))$new_deaths))
+}
+
+}
+reference_df <- data.frame(uni_scraped, cases_30, deaths_30, cases_60, deaths_60, cases_90, deaths_90) 
+
+colnames(reference_df) <- c("last_scraped", "cases_30", "deaths_30", "cases_60", "deaths_60", "cases_90", "deaths_90")
+
+final_df <- merge(full_df, reference_df, by='last_scraped')
+
+```
 
 
 ``` {r modeling}
 model <- lm(availability_30 ~ price + host_is_superhost + accommodates + review_scores_rating + review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value + num_reviews, final_df)
+
+model <- lm(availability_30 ~ price_numeric + num_reviews, final_df)
 
 ```
