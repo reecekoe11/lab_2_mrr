@@ -1,10 +1,12 @@
 ---
 title: "modeling"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
+# Notes for Mariah
 
+All lines from beginning to line 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr) 
@@ -20,13 +22,6 @@ library(readxl)
 library(stargazer)
 ```
 
-``` {r data wrangling, message=FALSE}
-setwd("~/Desktop/lab_2_mrr")
-data_NYC <- read_csv(file="data/listings_NY.csv")
-combined_reviews <- read_excel("data/combined_reviews.xlsx")
-combined_db <- read_excel("data/combined_db.xlsx")
-combined_covid <- read_excel("data/combined_covid.xlsx")
-```
 
 ``` {r creating function, message=FALSE}
 combine_listings_and_reviews <- function(listing_file_name, reviews_file_name){
@@ -134,28 +129,77 @@ for (unique_value in unique(final_df$state)){
   final_df[[OHE_col_name]] <- ifelse(final_df$state == unique_value,1,0)
 }                                                 
 
+
 final_df <- sample_n(final_df, floor(dim(final_df)[1] * 0.7))
 ```
 
+# EVERYTHING ABOVE THIS GOES INTO THE DATA CLEANING RMD FILE
 
-``` {r modeling building}
+# EVERYTHING BELOW THIS GOES INTO THE ANALYSIS RMD FILE
+
+
+# Model Building
+In our model building process, we wanted to measure the price of Airbnb rentals and how they could have been affected by factors related to the rental and COVID-19 in the area. There are 3 models that we found important when answering these questions. They are as follows:
+
+## Limited Model
+For our limited model, we used the variables representing number of reviews, availability in the next 30 days and number of deaths in the last 30 days. This model resulted in a very low correlation between the variables, even with the data transformations.  These results are displayed below in the regression table. We believe that more covariates are required to predict the price of a rental than just the influence of the COVID-19 deaths and the availability. 
+
+``` {r limited model}
 limited_model <- lm(log_price  ~ deaths_30 + log(num_reviews) + availability_30, final_df)
+```
 
+## Relevant Model
+This model included the key explanatory variables and covariates that we believed would be able to answer our research question. These variables included the host’s ‘superhost’ status, number of bedrooms, number of people the rental accommodates, availability in the next 30 days, average overall rating, average cleanliness rating, average location rating, average value rating, number of reviews, number of new COVID cases in the last 30 days, number of deaths in the last 30 days and OHE value for state. This model produced fairly accurate results with only the key explanatory variables and covariates that we believed would be important in predicting the price of a rental. These results are displayed below in the regression table.
+
+``` {r relevant model}
 relevant_model <- lm(log_price ~ log(bedrooms) + log(accommodates) + availability_30  + exp(review_scores_rating)  + exp(review_scores_location)  + log(num_reviews) + cases_30  + deaths_30 + NY_OHE, final_df) 
+```
 
+## Full Model
+This model included all of the numeric variables that were included in the datasets (except for longitude and latitude). This model actually turned out to be almost as accurate as the `Relevant Model` explained above. Our interpretation of these results are explained in more depth in the Limitations Section below. 
+
+
+``` {r full model}
 full_model <- lm(log_price ~ host_is_superhost + log(bedrooms) + log_beds + log(accommodates) + availability_30 +  availability_60 + availability_90 + availability_365 + exp(review_scores_rating) + exp(review_scores_accuracy) + exp(review_scores_cleanliness)  + exp(review_scores_checkin) + exp(review_scores_communication) + exp(review_scores_location) + exp(review_scores_value) + log(num_reviews) + cases_30 + deaths_30 + cases_60 + deaths_60 + cases_90 + deaths_90 + NY_OHE, final_df) 
 ```
 
 
 
 ``` {r model results}
-stargazer(limited_model, relevant_model, full_model, column.labels = c("Limited", "Relevant", "Full"), out ='regression_table.html', type='text', title= 'Regression Table')
+stargazer(limited_model, relevant_model, full_model, column.labels = c("Limited", "Relevant", "Full"), out ='regression_table.html', type='text', title= 'Regression Table', single.row = TRUE,  column.sep.width = "-15pt" )
 ```
 
+# Limitations of Our Models
 
-``` {r plots}
-p1 <- plot(relevant_model,1)
-p2 <- plot(relevant_model,2)
+##CLM Assumption Evaluations
+### IID Sampling
+Each observation in our final data frame represents a listing. Some of the variables relating to a single observation might be correlated to one another, for example the price in one neighborhood may be related to or influenced by the price of listings in the same neighborhood. In order to circumvent this we decided to pull a random sample from the data we collected in order to ensure a more IID sample. We randomly selected 60% of the data to run our regression on. 
 
+### Linear Conditional Expectation
+This plot below shows the linearity of the data
+``` {r model plot 1 }
+plot(relevant_model,1)
 ```
+To show linearity, we want to see a horizontal red line that represents an equal distribution of the residuals. There is also no shown pattern of the points on the graph, which proves linearity in the data.
+
+### Normally Distributed Errors
+``` {r model plot 2}
+plot(relevant_model,2)
+```
+
+The plot above shows the normality of the residuals. The points of the line fall on or close to the diagonal. This is a check for normally distributed errors. 
+
+
+
+## Limitations of the analysis
+The initial reasoning behind this research question was to see if price fluctuated with the number of cases and availability of the rental properties. This question was formulated based on the assumption that there would be a wide range of the variable `last_scrapped_date`. This variable represented the last time the data was scraped and updated. It turned out that there were only a handful of different inputs in this variable, so a lot of the data had the same values for the COVID-19 related fields. This limitation in the data caused the appended values from the COVID-19 data almost irrelevant in the regression. 
+The lack of variance for the COVID-19 portion of the dataset explains why the ‘full_model’ performed better than the ‘relevant_model’. Our intuition tells us that the Airbnb data dominated the coefficients created by the model. When adding more variables to the equation, it should dilute the relevant covariates in the equation and pull away from the accuracy, but that was not the case in our model. It pulled away the inaccuracy of the COVID-19 related covariates and allowed the variables taken from the Airbnb dataset to hold more weight in the regression. 
+
+
+
+# Conclusion
+
+The results of the model did not reflect our initial hypothesis. As we developed the research question, we established certain variables that we believed would have a strong influence on the outcome of the model. When analyzing the estimates of the model, it is obvious that a lot of the variables are not relevant in the overall equation. The most interesting finding is when looking at the estimate for the variable ‘NY_OHE’. In the `Relevant Model`, this covariate was not a strong indicator of the outcome with a value of `-0.981`. But, in the `Full Model` this variable controlled most of the result with a value of `10.97`. 
+Overall, our analysis shows a relationship between a property's price and it’s availability and COVID-19’s impact. This relationship is shown through the adjusted `R^2` values of the models and the graphs that verify the assumptions needed. While there were some limitations within the data that was collected, this study could be applied to a more diverse dataset and should hold just as well, if not better. 
+
 
