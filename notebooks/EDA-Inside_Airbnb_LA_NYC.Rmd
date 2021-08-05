@@ -1,0 +1,229 @@
+---
+title: "EDA-Inside_Airbnb for LA and NYC"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr) 
+library(plotly)
+library(ggplot2)
+library(lubridate)
+library(tidyverse)
+```
+
+
+```{r Read in NYC dataset, echo=FALSE, warning=FALSE, message=FALSE, results = 'hide'}
+data_NYC <- read.csv('listingsNY.csv')
+summary(data_NYC)
+
+data_LA <- read.csv('listingsLA.csv')
+summary(data_LA)
+```
+#Exploraory Data Analysis#
+
+**Price**
+Airbnb pricing strategy is a key player in your Airbnb business. You must make 
+sure the price defines the maximum value of the product and at the same time it 
+must appeal to the customers. The direct impact of your Airbnb pricing is the 
+number of bookings you receive. Pricing is probably the first detail that a 
+potential guest will notice. After narrowing our city selection down to New York
+City and Los Angeles, we wanted to dive in deeper to see the distribution of what
+Airbnb’s are being rented out for. Our initial approach of just plotting price 
+did not give us an accurate reading. After looking at the distribution of the 
+price variable, we performed a logarithmic transformation because the distribution
+was skewed to the right. The mean price for an Airbnb in New York City is $157.05 
+as compared to in Los Angeles where the mean is $260.65 across all different room 
+type options. 
+
+
+
+```{r New York City- Price, echo=FALSE, warning=FALSE }
+ggplot(data_NYC, aes(price)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
+  geom_density(alpha = 0.2, fill = "purple") +
+  ggtitle("Distribution of price",
+          subtitle = "The distribution is very skewed") +
+  theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_vline(xintercept = round(mean(data_NYC$price), 2), size = 2, linetype = 3)
+
+#Since the original distribution is very skewed, logarithmic transformation can be used to gain better insight into data.
+ggplot(data_NYC, aes(price)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
+  geom_density(alpha = 0.2, fill = "purple") +
+  ggtitle("Transformed distribution of price",
+          subtitle = expression("With" ~'log'[10] ~ "transformation of x-axis")) +
+  #theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_vline(xintercept = round(mean(data_NYC$price), 2), size = 2, linetype = 3) +
+  scale_x_log10() +
+  annotate("text", x = 1800, y = 0.75,label = paste("Mean price = ", paste0(round(mean(data_NYC$price), 2), "$")),
+           color =  "#32CD32", size = 8)
+
+```
+
+```{r Los Angeles - Price Distribution, echo=FALSE, warning=FALSE }
+#Since the original distribution is very skewed, logarithmic transformation can be used to gain better insight into data.
+ggplot(data_LA, aes(price)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
+  geom_density(alpha = 0.2, fill = "purple") +
+  ggtitle("Transformed distribution of price",
+          subtitle = expression("With" ~'log'[10] ~ "transformation of x-axis")) +
+  #theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_vline(xintercept = round(mean(data_LA$price), 2), size = 2, linetype = 3) +
+  scale_x_log10() +
+  annotate("text", x = 1800, y = 0.75,label = paste("Mean price = ", paste0(round(mean(data_LA$price), 2), "$")),
+           color =  "#32CD32", size = 8)
+
+
+```
+
+**Availability** 
+Airbnb has experienced a series of changes on to adapt for what it believes will 
+be a new travel reality: People booking longer trips, or even living away from 
+home for months. It’s a big change from before, when it was all about business 
+trips or brief vacations during specific times of the year like summer. 
+According to Airbnb, as of February 2021, a mix of mountain and coastal locations
+gained the most number of new available listings, which are defined as the 
+number of active listings (the number of listings viewable on Airbnb with at 
+least one prior booked night) that have calendar availability or at least one 
+booked day in the month. For our analysis as we were looking at New York City 
+and Los Angeles data, we decided this would be an important variable to keep 
+into consideration for our model as instead of using the original variable 
+availiabilty_365, we now could view availability within a 30-, 60-, and 
+90-day period. Based off of the varying ability, we can see how price would be 
+affected as Airbnb increased its flexibility as COVID-19 case counts fluctuated.
+According to AirDNA, demand for short-term rentals is expected to show a significant
+recovery in 2021 as vaccines continue to roll out and pent-up demand accelerates 
+booking globally.
+
+**Neighborhood**
+Although neighborhood was not a factor we used in our final model, for our 
+preliminary data collection the neighborhood an Airbnb is in plays a big role. 
+As part of the Inside Airbnb dataset, one column that our group wanted to explore
+was neighbourhood_group and neighbourhood. When performing our initial data 
+cleaning and finding unique values, we saw that New York City is divided into 
+5 main groups which include Bronx, Brooklyn, Manhattan, Queens, and Staten Island. 
+As you can see below, Manhattan has the highest percentage of listings among 
+the other neighborhoods. Brooklyn also possess several listings that is almost 
+similar to Manhattan. The other neighborhoods have considerably less percentages. 
+Based on these findings we can assume this since Manhattan and Brooklyn are 
+highly commercialized cities. Also, Manhattan is known to have the highest population. To accommodate a larger number of people, the number of houses should be 
+high hence explains the reason for having the highest percentage of listings. 
+Additionally, when looking at the mean price breakdown by the neighborhood group, 
+we can see Manhattan having the highest price at $201.91 followed by Brooklyn 
+at $128.78. 
+
+```{r Mean Price comparison for each Neighbourhood Group - NY, echo=FALSE, warning=FALSE}
+data_NYC %>% 
+  filter(!(is.na(neighbourhood_group))) %>% 
+  filter(!(neighbourhood_group == "Unknown")) %>% 
+  group_by(neighbourhood_group) %>% 
+  summarise(mean_price = mean(price, na.rm = TRUE)) %>% 
+  ggplot(aes(x = reorder(neighbourhood_group, mean_price), y = mean_price, fill = neighbourhood_group)) +
+  geom_col(stat ="identity", color = "black", fill="#357b8a") +
+  coord_flip() +
+  theme_gray() +
+  labs(x = "Neighbourhood Group", y = "Price") +
+  geom_text(aes(label = round(mean_price,digit = 2)), hjust = 2.0, color = "white", size = 3.5) +
+  ggtitle("Mean Price comparison for each Neighbourhood Group - NY", subtitle = "Price vs Neighbourhood Group") + 
+  xlab("Neighbourhood Group") + 
+  ylab("Mean Price") +
+  theme(legend.position = "none",
+        plot.title = element_text(color = "black", size = 14, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(color = "darkblue", hjust = 0.5),
+        axis.title.y = element_text(),
+        axis.title.x = element_text(),
+        axis.ticks = element_blank())
+```
+
+```{r Mean Price comparison for each Neighbourhood Group - LA, echo=FALSE, warning=FALSE}
+data_LA %>% 
+  filter(!(is.na(neighbourhood_group))) %>% 
+  filter(!(neighbourhood_group == "Unknown")) %>% 
+  group_by(neighbourhood_group) %>% 
+  summarise(mean_price = mean(price, na.rm = TRUE)) %>% 
+  ggplot(aes(x = reorder(neighbourhood_group, mean_price), y = mean_price, fill = neighbourhood_group)) +
+  geom_col(stat ="identity", color = "black", fill="#357b8a") +
+  coord_flip() +
+  theme_gray() +
+  labs(x = "Neighbourhood Group", y = "Price") +
+  geom_text(aes(label = round(mean_price,digit = 2)), hjust = 2.0, color = "white", size = 3.5) +
+  ggtitle("Mean Price comparison for each Neighbourhood Group - LA", subtitle = "Price vs Neighbourhood Group") + 
+  xlab("Neighbourhood Group") + 
+  ylab("Mean Price") +
+  theme(legend.position = "none",
+        plot.title = element_text(color = "black", size = 14, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(color = "darkblue", hjust = 0.5),
+        axis.title.y = element_text(),
+        axis.title.x = element_text(),
+        axis.ticks = element_blank())
+
+```
+
+**Total Cases**
+Airbnb is one of the many businesses in the travel industry that has been hit hard by the coronavirus pandemic. In March 2017 Airbnb was valued at $31 billion. By the end of April 2020 it was worth $18 billion. The global pandemic is proving to be Airbnb’s biggest challenge yet as social distancing measures are in place, some local governments deemed short-term rentals as non-essential businesses, adding more stress to hosts who rely on Airbnb for income. 
+
+**Total Deaths**
+
+
+**Room Type/Bedrooms**
+When guests book a place, they want to know what they’ll be getting as far as 
+accommodation go. The first option a guest has when it comes to renting is the 
+shared rooms option. This comes with the expectation that the guests share the 
+entire space with the host or others and don’t have a private room to themselves.
+The second option is private rooms where the guests share some common areas with 
+the host (i.e. kitchen, living room, bathroom) but they have their own private 
+room for sleeping. And lastly the most popular option is having the ability to 
+rent out the entire home/apartment. This allows the guests to rent the entire 
+unit and don’t have to share the space with the host or with anyone else. Airbnb 
+also allows for the ability to rent hotel rooms. When looking at our models below,
+we can see that for both LA and NYC, entire houses and apartments is the most 
+popular property type. To find the mean price for all the different room types, 
+we first had to drop any values where the price was equal to zero or NULL. When 
+looking at New York’s price for different room type, we see that hotel is the 
+most expensive rental type at $290.76. A guest would have a better offer renting
+a entire house/apartment ranging around $208.73 depending on location,
+availability, and other factors we use in our model that will be mentioned later.
+In comparison, when looking at the Los Angeles data, we see that entire 
+homes/apartments mean price is $323.98 which is significantly higher than 
+the New York City prices. 
+
+
+```{r Mean Price Commaprison of Room types - NYC, echo=FALSE, warning=FALSE }
+data_NYC %>% 
+  filter(!(is.na(room_type))) %>% 
+  filter(!(room_type == "Unknown")) %>% 
+  group_by(room_type) %>% 
+  summarise(mean_price = mean(price, na.rm = TRUE)) %>% 
+  ggplot(aes(x = reorder(room_type, mean_price), y = mean_price, fill = room_type)) +
+  geom_col(stat ="identity", color = "black", fill="#357b8a") +
+  coord_flip() +
+  theme_gray() +
+  labs(x = "Room Type", y = "Price") +
+  geom_text(aes(label = round(mean_price,digit = 2)), hjust = 2.0, color = "white", size = 3.5) +
+  ggtitle("Mean Price comparison with all Room Types - NYC", subtitle = "Price vs Room Type") + 
+  xlab("Room Type") + 
+  ylab("Mean Price")
+```
+
+```{r Mean Price comparison for each Room Type - LA, echo=FALSE, warning=FALSE}
+data_LA %>% 
+  filter(!(is.na(room_type))) %>% 
+  filter(!(room_type == "Unknown")) %>% 
+  group_by(room_type) %>% 
+  summarise(mean_price = mean(price, na.rm = TRUE)) %>% 
+  ggplot(aes(x = reorder(room_type, mean_price), y = mean_price, fill = room_type)) +
+  geom_col(stat ="identity", color = "black", fill="#357b8a") +
+  coord_flip() +
+  theme_gray() +
+  labs(x = "Room Type", y = "Price") +
+  geom_text(aes(label = round(mean_price,digit = 2)), hjust = 2.0, color = "white", size = 3.5) +
+  ggtitle("Mean Price comparison with all Room Types - NYC", subtitle = "Price vs Room Type") + 
+  xlab("Room Type") + 
+  ylab("Mean Price")
+
+```
+
+**Other Variables**
+We additionally included several measures of "review" data in our model that would 
+help us in the model to answer our original question: How have the price of AirBnB rentals in Los Angeles and New York been affected with varying availability and COVID-19 case counts? Reviews are essential to the entire Airbnb community, helping guests choose their travel plans wisely and enabling hosts like you to open their homes with confidence and attract guests who will love their stay. In fact, it’s not a stretch to say that your Airbnb business is based on positive reviews. Each review helps guests decide whether to book with you, and Airbnb data suggests that a higher number of positive reviews is correlated with higher price rentals. To find the number of reviews on a certain property, we had to use the ‘reviews.csv’ datasets. These included the listing ID number along with the date of review. We subset the entries for all reviews made on or after March 1, to designate our “summer” period to study. We summed the number of entries by listing ID and appended that to each observation. For the sake of our model which we will look at furhter in the report, we look at many specific categories of review data including: review_scores_rating, review_scores_accuracy, review_scores_cleanliness, and review_scores_communication to list a few. 
+
