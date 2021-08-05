@@ -1,0 +1,95 @@
+
+<table style="text-align:center"><caption><strong>Regression Table</strong></caption>
+<tr><td colspan="4" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"></td><td colspan="3"><em>Dependent variable:</em></td></tr>
+<tr><td></td><td colspan="3" style="border-bottom: 1px solid black"></td></tr>
+<tr><td style="text-align:left"></td><td colspan="3">log_price</td></tr>
+<tr><td style="text-align:left"></td><td>Limited</td><td>Relevant</td><td>Full</td></tr>
+<tr><td style="text-align:left"></td><td>(1)</td><td>(2)</td><td>(3)</td></tr>
+<tr><td colspan="4" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">host_is_superhost</td><td></td><td>0.041<sup>***</sup></td><td>0.043<sup>***</sup></td></tr>
+<tr><td style="text-align:left"></td><td></td><td>(0.010)</td><td>(0.010)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">log(bedrooms)</td><td></td><td>0.413<sup>***</sup></td><td>0.479<sup>***</sup></td></tr>
+<tr><td style="text-align:left"></td><td></td><td>(0.015)</td><td>(0.017)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">log_beds</td><td></td><td></td><td>-0.098<sup>***</sup></td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.014)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">log(accommodates)</td><td></td><td>0.615<sup>***</sup></td><td>0.642<sup>***</sup></td></tr>
+<tr><td style="text-align:left"></td><td></td><td>(0.011)</td><td>(0.013)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">deaths_30</td><td>-0.001<sup>***</sup></td><td>0.002<sup>***</sup></td><td>0.002</td></tr>
+<tr><td style="text-align:left"></td><td>(0.0001)</td><td>(0.0004)</td><td>(0.003)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">cases_60</td><td></td><td></td><td>0.0002</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.0003)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">I(cases_602)</td><td></td><td></td><td>-0.000</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.000)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">deaths_60</td><td></td><td></td><td>-0.002</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.004)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">cases_90</td><td></td><td></td><td>-0.00003</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.0001)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">I(cases_902)</td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">deaths_90</td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">NY_OHE</td><td></td><td>-0.815<sup>***</sup></td><td></td></tr>
+<tr><td style="text-align:left"></td><td></td><td>(0.095)</td><td></td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">log(num_reviews)</td><td>0.069<sup>***</sup></td><td>0.032<sup>***</sup></td><td>0.033<sup>***</sup></td></tr>
+<tr><td style="text-align:left"></td><td>(0.006)</td><td>(0.004)</td><td>(0.004)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">cases_30</td><td></td><td>-0.0001<sup>***</sup></td><td>0.0001</td></tr>
+<tr><td style="text-align:left"></td><td></td><td>(0.00001)</td><td>(0.0004)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">I(cases_302)</td><td></td><td></td><td>-0.000</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.000)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">availability_30</td><td>0.002<sup>***</sup></td><td>0.007<sup>***</sup></td><td>0.008<sup>***</sup></td></tr>
+<tr><td style="text-align:left"></td><td>(0.001)</td><td>(0.001)</td><td>(0.001)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">availability_60</td><td></td><td></td><td>0.001</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.001)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">availability_90</td><td></td><td></td><td>-0.001<sup>**</sup></td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.001)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">availability_365</td><td></td><td></td><td>0.00002</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.00004)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">exp(review_scores_rating)</td><td></td><td>0.003<sup>***</sup></td><td>0.004<sup>***</sup></td></tr>
+<tr><td style="text-align:left"></td><td></td><td>(0.0003)</td><td>(0.0003)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">exp(review_scores_accuracy)</td><td></td><td></td><td>-0.0003</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.0003)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">exp(review_scores_cleanliness)</td><td></td><td>0.002<sup>***</sup></td><td>0.002<sup>***</sup></td></tr>
+<tr><td style="text-align:left"></td><td></td><td>(0.0002)</td><td>(0.0002)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">exp(review_scores_checkin)</td><td></td><td></td><td>-0.002<sup>***</sup></td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.0003)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">exp(review_scores_communication)</td><td></td><td></td><td>-0.001<sup>**</sup></td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td>(0.0003)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">exp(review_scores_location)</td><td></td><td>0.006<sup>***</sup></td><td>0.006<sup>***</sup></td></tr>
+<tr><td style="text-align:left"></td><td></td><td>(0.0002)</td><td>(0.0002)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">exp(review_scores_value)</td><td></td><td>-0.006<sup>***</sup></td><td>-0.006<sup>***</sup></td></tr>
+<tr><td style="text-align:left"></td><td></td><td>(0.0003)</td><td>(0.0003)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td style="text-align:left">Constant</td><td>5.523<sup>***</sup></td><td>4.083<sup>***</sup></td><td>-0.432</td></tr>
+<tr><td style="text-align:left"></td><td>(0.056)</td><td>(0.170)</td><td>(14.007)</td></tr>
+<tr><td style="text-align:left"></td><td></td><td></td><td></td></tr>
+<tr><td colspan="4" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left">Observations</td><td>14,019</td><td>12,133</td><td>11,991</td></tr>
+<tr><td style="text-align:left">R<sup>2</sup></td><td>0.030</td><td>0.580</td><td>0.580</td></tr>
+<tr><td style="text-align:left">Adjusted R<sup>2</sup></td><td>0.029</td><td>0.579</td><td>0.580</td></tr>
+<tr><td style="text-align:left">Residual Std. Error</td><td>0.731 (df = 14015)</td><td>0.485 (df = 12120)</td><td>0.481 (df = 11967)</td></tr>
+<tr><td style="text-align:left">F Statistic</td><td>142.605<sup>***</sup> (df = 3; 14015)</td><td>1,392.531<sup>***</sup> (df = 12; 12120)</td><td>719.545<sup>***</sup> (df = 23; 11967)</td></tr>
+<tr><td colspan="4" style="border-bottom: 1px solid black"></td></tr><tr><td style="text-align:left"><em>Note:</em></td><td colspan="3" style="text-align:right"><sup>*</sup>p<0.1; <sup>**</sup>p<0.05; <sup>***</sup>p<0.01</td></tr>
+</table>

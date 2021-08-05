@@ -1,6 +1,8 @@
 ---
 title: "modeling"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -15,34 +17,29 @@ library(lubridate)
 library(glue)
 library(leaflet)
 library(readxl)
+library(stargazer)
 ```
 
-``` {r data wrangling}
-# print(getwd())
-# wd <- setwd("~/Desktop/lab_2_mrr")
-# #data_NYC <- read_csv(file="data/listingsNY.csv")
-# combined_reviews <- read_excel("data/combined_reviews.xlsx")
-# combined_db <- read_excel("data/combined_db.xlsx")
-# combined_covid <- read_excel("data/combined_covid.xlsx")
-
+``` {r data wrangling, message=FALSE}
+setwd("~/Desktop/lab_2_mrr")
+data_NYC <- read_csv(file="data/listings_NY.csv")
+combined_reviews <- read_excel("data/combined_reviews.xlsx")
+combined_db <- read_excel("data/combined_db.xlsx")
+combined_covid <- read_excel("data/combined_covid.xlsx")
 ```
 
-``` {r creating functions}
+``` {r creating function, message=FALSE}
 combine_listings_and_reviews <- function(listing_file_name, reviews_file_name){
   listings <- read_csv(file=glue('data/{listing_file_name}'))
   reviews <- read_csv(file=glue('data/{reviews_file_name}'))
-  
 
-  listings_columns_to_keep <- c("id", "last_scraped", "host_is_superhost", "accommodates", "price", "availability_30", "availability_60", "availability_90", "availability_365", "last_review", "review_scores_rating", "review_scores_accuracy", "review_scores_cleanliness", "review_scores_checkin", "review_scores_communication", "review_scores_location", "review_scores_value")
-  
+  listings_columns_to_keep <- c("id", "last_scraped", "beds", "bedrooms", "host_is_superhost", "accommodates", "price", "availability_30", "availability_60", "availability_90", "availability_365", "last_review", "review_scores_rating", "review_scores_accuracy", "review_scores_cleanliness", "review_scores_checkin", "review_scores_communication", "review_scores_location", "review_scores_value")
   reviews_columns_to_keep <- c("listing_id", "date")
   
   listings_subset <- subset(listings, select=listings_columns_to_keep)
   reviews_subset <- subset(reviews, select=reviews_columns_to_keep)
-  
+
   reviews_summer <- reviews_subset[reviews_subset$date > "2021-03-01",]
-  
-  
   reviews_final <- reviews_summer %>% count(listing_id)
   colnames(reviews_final) <- c("id", "num_reviews")
   list_review_combined <- left_join(listings_subset, reviews_final, by='id')
@@ -52,7 +49,7 @@ combine_listings_and_reviews <- function(listing_file_name, reviews_file_name){
 }
 ```
 
-``` {r getting data frame}
+``` {r importing Airbnb dataframes, message=FALSE}
 setwd("~/Desktop/lab_2_mrr")
 
 LA_df <- combine_listings_and_reviews('listings_LA.csv', 'reviews_LA.csv')
@@ -64,7 +61,7 @@ NY_df$state = 'NY'
 full_df <- rbind(LA_df, NY_df)
 ```
 
-``` {r covid data}
+``` {r importing COVID data, message=FALSE}
 setwd("~/Desktop/lab_2_mrr")
 all_covid_data <- read_csv(file='data/us-counties.csv')
 CA_counties <- c("Los Angeles", "Ventura", "Orange", "San Bernardino", "Santa Barbara", "San Diego", "Riverside")
@@ -95,8 +92,7 @@ NY_COVID_data <- NY_cases_by_day %>%
 
 ```
 
-``` {r combine AirBnb and COVID data}
-
+``` {r combine AirBnb and COVID data, message=FALSE, warning=FALSE}
 distinct_scraped <- distinct(full_df, last_scraped, .keep_all=TRUE)
 uni_scraped <- distinct_scraped$last_scraped
 cases_30 <- c()
@@ -122,21 +118,40 @@ for(i in 1:nrow(distinct_scraped)) {
     deaths_60 <- c(deaths_60, sum(subset(NY_COVID_data, (date > last_scraped_day - 61 & date < last_scraped_day + 1))$new_deaths))
     cases_90 <- c(cases_90, sum(subset(NY_COVID_data, (date > last_scraped_day - 91 & date < last_scraped_day + 1))$new_cases))
     deaths_90 <- c(deaths_90, sum(subset(NY_COVID_data, (date > last_scraped_day - 91 & date < last_scraped_day + 1))$new_deaths))
-}
-
+  }
+  
 }
 reference_df <- data.frame(uni_scraped, cases_30, deaths_30, cases_60, deaths_60, cases_90, deaths_90) 
 
 colnames(reference_df) <- c("last_scraped", "cases_30", "deaths_30", "cases_60", "deaths_60", "cases_90", "deaths_90")
 
 final_df <- merge(full_df, reference_df, by='last_scraped')
+final_df <- final_df %>% mutate(log_price = ifelse(price_numeric == 0, 0, log(price_numeric)))
+final_df <- final_df %>% mutate(log_beds = ifelse(beds == 0, 0, log(beds)))
 
+for (unique_value in unique(final_df$state)){
+  OHE_col_name <- paste0(unique_value,"_OHE")
+  final_df[[OHE_col_name]] <- ifelse(final_df$state == unique_value,1,0)
+}                                                 
+
+final_df <- sample_n(final_df, floor(dim(final_df)[1] * 0.7))
 ```
 
 
-``` {r modeling}
-model <- lm(availability_30 ~ price + host_is_superhost + accommodates + review_scores_rating + review_scores_accuracy + review_scores_cleanliness + review_scores_checkin + review_scores_communication + review_scores_location + review_scores_value + num_reviews, final_df)
+``` {r modeling building}
+limited_model <- lm(log_price  ~ deaths_30 + log(num_reviews) + availability_30, final_df)
 
-model <- lm(availability_30 ~ price_numeric + num_reviews, final_df)
+model_2 <- lm(log_price ~ host_is_superhost + log(bedrooms) + log(accommodates) + availability_30  + exp(review_scores_rating) + exp(review_scores_cleanliness)  + exp(review_scores_location) + exp(review_scores_value) + log(num_reviews) + cases_30  + deaths_30 + NY_OHE, final_df) 
 
+model_3 <- lm(log_price ~ host_is_superhost + log(bedrooms) + log_beds + log(accommodates) + availability_30 +  availability_60 + availability_90 + availability_365 + exp(review_scores_rating) + exp(review_scores_accuracy) + exp(review_scores_cleanliness)  + exp(review_scores_checkin) + exp(review_scores_communication) + exp(review_scores_location) + exp(review_scores_value) + log(num_reviews) + cases_30 + I(cases_30^2) + deaths_30 + cases_60 + I(cases_60^2) + deaths_60 + cases_90 + I(cases_90^2) + deaths_90 + NY_OHE, final_df) 
 ```
+
+
+
+``` {r model results}
+stargazer(limited_model, model_2, model_3, column.labels = c("Limited", "Relevant", "Full"), out ='regression_table.html', type='text', title= 'Regression Table')
+```
+
+
+
+
