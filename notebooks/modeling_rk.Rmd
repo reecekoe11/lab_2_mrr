@@ -141,17 +141,21 @@ final_df <- sample_n(final_df, floor(dim(final_df)[1] * 0.7))
 ``` {r modeling building}
 limited_model <- lm(log_price  ~ deaths_30 + log(num_reviews) + availability_30, final_df)
 
-model_2 <- lm(log_price ~ host_is_superhost + log(bedrooms) + log(accommodates) + availability_30  + exp(review_scores_rating) + exp(review_scores_cleanliness)  + exp(review_scores_location) + exp(review_scores_value) + log(num_reviews) + cases_30  + deaths_30 + NY_OHE, final_df) 
+relevant_model <- lm(log_price ~ log(bedrooms) + log(accommodates) + availability_30  + exp(review_scores_rating)  + exp(review_scores_location)  + log(num_reviews) + cases_30  + deaths_30 + NY_OHE, final_df) 
 
-model_3 <- lm(log_price ~ host_is_superhost + log(bedrooms) + log_beds + log(accommodates) + availability_30 +  availability_60 + availability_90 + availability_365 + exp(review_scores_rating) + exp(review_scores_accuracy) + exp(review_scores_cleanliness)  + exp(review_scores_checkin) + exp(review_scores_communication) + exp(review_scores_location) + exp(review_scores_value) + log(num_reviews) + cases_30 + I(cases_30^2) + deaths_30 + cases_60 + I(cases_60^2) + deaths_60 + cases_90 + I(cases_90^2) + deaths_90 + NY_OHE, final_df) 
+full_model <- lm(log_price ~ host_is_superhost + log(bedrooms) + log_beds + log(accommodates) + availability_30 +  availability_60 + availability_90 + availability_365 + exp(review_scores_rating) + exp(review_scores_accuracy) + exp(review_scores_cleanliness)  + exp(review_scores_checkin) + exp(review_scores_communication) + exp(review_scores_location) + exp(review_scores_value) + log(num_reviews) + cases_30 + deaths_30 + cases_60 + deaths_60 + cases_90 + deaths_90 + NY_OHE, final_df) 
 ```
 
 
 
 ``` {r model results}
-stargazer(limited_model, model_2, model_3, column.labels = c("Limited", "Relevant", "Full"), out ='regression_table.html', type='text', title= 'Regression Table')
+stargazer(limited_model, relevant_model, full_model, column.labels = c("Limited", "Relevant", "Full"), out ='regression_table.html', type='text', title= 'Regression Table')
 ```
 
 
+``` {r plots}
+p1 <- plot(relevant_model,1)
+p2 <- plot(relevant_model,2)
 
+```
 
