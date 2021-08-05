@@ -1,0 +1,393 @@
+---
+title: "Cleaning"
+output: html_notebook
+---
+
+```{r setup libraries and dfs, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr) 
+library(corrplot)
+library(plotly)
+library(ggplot2)
+library(lubridate)
+library(tidyverse)
+library(lubridate)
+library(glue)
+library(leaflet)
+library(readxl)
+library(stargazer)
+
+listings_LA <- read.csv(url("http://data.insideairbnb.com/united-states/ca/los-angeles/2021-07-05/data/listings.csv"))
+listings_NY <- read.csv(url("http://data.insideairbnb.com/united-states/ny/new-york-city/2021-06-02/visualisations/listings.csv"))
+reviews_LA <- read.csv(url("http://data.insideairbnb.com/united-states/ca/los-angeles/2021-07-05/visualisations/reviews.csv"))
+reviews_NY <- read.csv(url("http://data.insideairbnb.com/united-states/ny/new-york-city/2021-06-02/visualisations/reviews.csv"))
+```
+######################## RK ###############################################
+
+``` {r creating function, message=FALSE}
+combine_listings_and_reviews <- function(listing_file_name, reviews_file_name){
+  listings <- read_csv(file=glue('data/{listing_file_name}'))
+  reviews <- read_csv(file=glue('data/{reviews_file_name}'))
+  listings_columns_to_keep <- c("id", "last_scraped", "beds", "bedrooms", "host_is_superhost", "accommodates", "price", "availability_30", "availability_60", "availability_90", "availability_365", "last_review", "review_scores_rating", "review_scores_accuracy", "review_scores_cleanliness", "review_scores_checkin", "review_scores_communication", "review_scores_location", "review_scores_value")
+  reviews_columns_to_keep <- c("listing_id", "date")
+  
+  listings_subset <- subset(listings, select=listings_columns_to_keep)
+  reviews_subset <- subset(reviews, select=reviews_columns_to_keep)
+  reviews_summer <- reviews_subset[reviews_subset$date > "2021-03-01",]
+  reviews_final <- reviews_summer %>% count(listing_id)
+  colnames(reviews_final) <- c("id", "num_reviews")
+  list_review_combined <- left_join(listings_subset, reviews_final, by='id')
+  final_df <- list_review_combined[complete.cases(list_review_combined$num_reviews),]
+  final_df$price_numeric <- as.numeric(str_remove_all(final_df$price, "[$]"))
+  return (final_df)
+}
+```
+
+``` {r importing Airbnb dataframes, message=FALSE}
+LA_df <- combine_listings_and_reviews(listings_LA, reviews_LA)
+NY_df <- combine_listings_and_reviews(listings_NY, reviews_NY)
+LA_df$state = 'CA'
+NY_df$state = 'NY'
+full_df <- rbind(LA_df, NY_df)
+```
+
+``` {r importing COVID data, message=FALSE}
+all_covid_data <- read.csv(url("https://raw.githubusercontent.com/reecekoe11/lab_2_mrr/main/data/external/us-counties.csv"))
+CA_counties <- c("Los Angeles", "Ventura", "Orange", "San Bernardino", "Santa Barbara", "San Diego", "Riverside")
+NY_counties <- c("New York City", "Westchester", "Suffolk")
+CA_covid_data <- all_covid_data[all_covid_data$county %in% CA_counties & all_covid_data$state == 'California',]
+NY_covid_data <- all_covid_data[all_covid_data$county %in% NY_counties & all_covid_data$state == 'New York',]
+CA_summer_data <- CA_covid_data[CA_covid_data$date >  "2021-02-27",]
+NY_summer_data <- NY_covid_data[NY_covid_data$date >  "2021-02-27",]
+CA_cases_by_day <- CA_summer_data %>% 
+                                    group_by(state, date) %>% 
+                                    summarise(total_cases=sum(cases),
+                                              total_deaths=sum(deaths))
+NY_cases_by_day <- NY_summer_data %>% 
+                                    group_by(state, date) %>% 
+                                    summarise(total_cases=sum(cases),
+                                              total_deaths=sum(deaths))
+CA_COVID_data <- CA_cases_by_day %>%
+    mutate(new_cases = total_cases - lag(total_cases),
+           new_deaths = total_deaths - lag(total_deaths),
+           .keep="all") %>% na.omit()
+NY_COVID_data <- NY_cases_by_day %>%
+    mutate(new_cases = total_cases - lag(total_cases),
+           new_deaths = total_deaths - lag(total_deaths),
+           .keep="all") %>% na.omit()
+```
+
+``` {r combine AirBnb and COVID data, message=FALSE, warning=FALSE}
+distinct_scraped <- distinct(full_df, last_scraped, .keep_all=TRUE)
+uni_scraped <- distinct_scraped$last_scraped
+cases_30 <- c()
+deaths_30 <- c()
+cases_60 <- c()
+deaths_60 <- c()
+cases_90 <- c()
+deaths_90 <- c()
+for(i in 1:nrow(distinct_scraped)) {   
+  last_scraped_day <- distinct_scraped[i, 'last_scraped']
+  if (distinct_scraped[i,'state'] == "CA"){
+    cases_30 <- c(cases_30, sum(subset(CA_COVID_data, (date > last_scraped_day - 31 & date < last_scraped_day + 1))$new_cases))
+    deaths_30 <- c(deaths_30, sum(subset(CA_COVID_data, (date > last_scraped_day - 31 & date < last_scraped_day + 1))$new_deaths))
+    cases_60 <- c(cases_60, sum(subset(CA_COVID_data, (date > last_scraped_day - 61 & date < last_scraped_day + 1))$new_cases))
+    deaths_60 <- c(deaths_60, sum(subset(CA_COVID_data, (date > last_scraped_day - 61 & date < last_scraped_day + 1))$new_deaths))
+    cases_90 <- c(cases_90, sum(subset(CA_COVID_data, (date > last_scraped_day - 91 & date < last_scraped_day + 1))$new_cases))
+    deaths_90 <- c(deaths_90, sum(subset(CA_COVID_data, (date > last_scraped_day - 91 & date < last_scraped_day + 1))$new_deaths))
+  } else if (distinct_scraped[i,'state'] == "NY"){
+    cases_30 <- c(cases_30, sum(subset(NY_COVID_data, (date > last_scraped_day - 31 & date < last_scraped_day + 1))$new_cases))
+    deaths_30 <- c(deaths_30, sum(subset(NY_COVID_data, (date > last_scraped_day - 31 & date < last_scraped_day + 1))$new_deaths))
+    cases_60 <- c(cases_60, sum(subset(NY_COVID_data, (date > last_scraped_day - 61 & date < last_scraped_day + 1))$new_cases))
+    deaths_60 <- c(deaths_60, sum(subset(NY_COVID_data, (date > last_scraped_day - 61 & date < last_scraped_day + 1))$new_deaths))
+    cases_90 <- c(cases_90, sum(subset(NY_COVID_data, (date > last_scraped_day - 91 & date < last_scraped_day + 1))$new_cases))
+    deaths_90 <- c(deaths_90, sum(subset(NY_COVID_data, (date > last_scraped_day - 91 & date < last_scraped_day + 1))$new_deaths))
+  }
+  
+}
+reference_df <- data.frame(uni_scraped, cases_30, deaths_30, cases_60, deaths_60, cases_90, deaths_90) 
+colnames(reference_df) <- c("last_scraped", "cases_30", "deaths_30", "cases_60", "deaths_60", "cases_90", "deaths_90")
+final_df <- merge(full_df, reference_df, by='last_scraped')
+final_df <- final_df %>% mutate(log_price = ifelse(price_numeric == 0, 0, log(price_numeric)))
+final_df <- final_df %>% mutate(log_beds = ifelse(beds == 0, 0, log(beds)))
+for (unique_value in unique(final_df$state)){
+  OHE_col_name <- paste0(unique_value,"_OHE")
+  final_df[[OHE_col_name]] <- ifelse(final_df$state == unique_value,1,0)
+}                                                 
+final_df <- sample_n(final_df, floor(dim(final_df)[1] * 0.7))
+
+setwd("~/lab_2_mrr/data/processed")
+write.csv(final_df,file = "./data/processed/final_df.csv")
+```
+
+
+
+########################### MM #########################################
+```{r setup MM, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages('corrplot')
+library(dplyr) 
+library(corrplot)
+library(plotly)
+library(ggplot2)
+library(lubridate)
+library(tidyverse)
+library(lubridate)
+```
+
+#US Covid Cases NY Times Dataset
+```{r Covid NY times read in and explore data}
+covid_df <- read.csv(url("https://raw.githubusercontent.com/reecekoe11/lab_2_mrr/main/data/external/us-counties.csv"))
+head(covid_df)
+
+glimpse(covid_df)
+dim(covid_df)
+summary(is.na(covid_df))
+
+unique(covid_df$county)
+length(unique(covid_df$county))
+```
+```{r distribution of cases}
+ggplot(covid_df, aes(cases)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "red") + 
+  geom_density(alpha = 0.2, fill = "red") +
+  ggtitle("Distribution of cases",
+          subtitle = "The distribution is very skewed") +
+  theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_vline(xintercept = round(mean(covid_df$cases), 2), size = 2, linetype = 3)
+
+
+#Transform
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "red") + 
+  geom_density(alpha = 0.2, fill = "red") +
+  ggtitle("Transformed distribution of cases",
+          subtitle = expression("With" ~'log'[10] ~ "transformation of x-axis")) +
+  #theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_vline(xintercept = round(mean(covid_df$cases), 2), size = 2, linetype = 3) +
+  scale_x_log10() +
+  annotate("text", x = 1800, y = 0.75,label = paste("Mean Cases = ", paste0(round(mean(covid_df$cases), 2))),
+           color =  "#32CD32", size = 8)
+```
+
+```{r create processed df for use in Final Report MM}
+combined_df <- read.csv(url("https://raw.githubusercontent.com/reecekoe11/lab_2_mrr/main/data/interm/combined_by_date.csv"))
+head(combined_df)
+
+summarized_df <- combined_df %>% group_by(Year.Month,Year,Month,State) %>% summarise(Num_reviews=sum(Num_reviews),Num_cases=sum(Num_cases),Num_deaths = sum(Num_deaths))
+
+write.csv(summarized_df,"~/lab_2-main/data/processed/summarized_df.csv")
+```
+
+```{r animated graphs, warning= FALSE, echo = FALSE,fig.show = 'animate' , ffmpeg.format = 'gif' , dev = 'jpeg' }
+##R code for animated graphs used in presentation
+formatted_df_num_cases <- summarized_df %>% group_by(Year,Month) %>% mutate(rank = rank(-Num_cases),Value_rel = Num_cases/Num_cases[rank==1],Value_lbl = paste0(" ",round(Num_cases))) %>% group_by(State) %>% ungroup()
+
+
+static = ggplot(formatted_df_num_cases,aes(rank,group=State,fill= State,color = State)) +geom_tile(aes(y = Num_cases/2, height = Num_cases, width = 0.9), alpha = 0.8, color = NA) +geom_text(aes(y=0,label = paste(State," ")),vjust=0.2,hjust=1)+ geom_text(aes(y=Num_cases,label = paste0(" ",round(Num_cases))), hjust=0) + coord_flip(clip = "off", expand = FALSE) +scale_y_continuous(labels = scales::comma) + scale_x_reverse() + guides(color = "none", fill = "none") +theme(axis.line=element_blank(),axis.text.x=element_blank(),axis.text.y=element_blank(), axis.ticks=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank(),legend.position="none", panel.background=element_blank(),
+        panel.border=element_blank(),
+        panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        panel.grid.major.x = element_line( size=.1, color="grey" ),
+        panel.grid.minor.x = element_line( size=.1, color="grey" ),
+        plot.title=element_text(size=19, hjust=0.5, face="bold", colour="grey", vjust=1),
+        plot.subtitle=element_text(size=18, hjust=0.5, face="italic", color="grey"),
+        plot.caption =element_text(size=8, hjust=0.5, face="italic", color="grey"),
+        plot.background=element_blank(),
+       plot.margin = margin(2,2, 2, 4, "cm"))
+anim_num_cases <- static + transition_states(Year.Month,transition_length = 4,state_length =4) + view_follow(fixed_x = TRUE)+labs(title = 'COVID cases per Year and Month: {closest_state}', caption  = "COVID-19 cases per Year and Month",subtitle = "5 Vacation Options")
+
+animate(anim_num_cases)
+
+
+#animated bar chart of Num Reviews
+formatted_df_num_reviews <- summarized_df %>% group_by(Year,Month) %>% mutate(rank = rank(-Num_reviews),Value_rel = Num_reviews/Num_reviews[rank==1],Value_lbl = paste0(" ",round(Num_reviews))) %>% group_by(State) %>% ungroup()
+
+static_reviews = ggplot(formatted_df_num_reviews,aes(rank,group=State,fill= State,color = State)) +geom_tile(aes(y = Num_reviews/2, height = Num_reviews, width = 0.9), alpha = 0.8, color = NA) +geom_text(aes(y=0,label = paste(State," ")),vjust=0.2,hjust=1)+ geom_text(aes(y=Num_reviews,label = paste0(" ",round(Num_reviews))), hjust=0) + coord_flip(clip = "off", expand = FALSE) +scale_y_continuous(labels = scales::comma) + scale_x_reverse() + guides(color = "none", fill = "none") +theme(axis.line=element_blank(),axis.text.x=element_blank(),axis.text.y=element_blank(), axis.ticks=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank(),legend.position="none", panel.background=element_blank(),
+        panel.border=element_blank(),
+        panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        panel.grid.major.x = element_line( size=.1, color="grey" ),
+        panel.grid.minor.x = element_line( size=.1, color="grey" ),
+        plot.title=element_text(size=19, hjust=0.5, face="bold", colour="grey", vjust=1),
+        plot.subtitle=element_text(size=18, hjust=0.5, face="italic", color="grey"),
+        plot.caption =element_text(size=8, hjust=0.5, face="italic", color="grey"),
+        plot.background=element_blank(),
+       plot.margin = margin(2,2, 2, 4, "cm"))
+
+anim_reviews <- static_reviews + transition_states(Year.Month,transition_length = 4,state_length =4) + view_follow(fixed_x = TRUE)+labs(title = 'Airbnb Reviews per Year and Month: {closest_state}',subtitle = "5 Vacation Options" ,caption  = "Number of Airbnb Reviews per Year and Month")
+
+animate(anim_reviews)
+```
+
+
+################################################ RM Data Prep ###########################################################
+```{r Read in NYC dataset, echo=TRUE, warning=FALSE, message=FALSE, results = 'hide'}
+data_NYC <- listings_NY
+summary(data_NYC)
+glimpse(data_NYC)
+dim(data_NYC)
+summary(is.na(data_NYC))
+```
+
+```{r Unique data,echo=TRUE, warning=FALSE, message=FALSE, results = 'hide'}
+unique(data_NYC$neighbourhood_group)
+unique(data_NYC$neighbourhood)
+```
+
+```{r New York City- Price }
+ggplot(data_NYC, aes(price)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
+  geom_density(alpha = 0.2, fill = "purple") +
+  ggtitle("Distribution of price",
+          subtitle = "The distribution is very skewed") +
+  theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_vline(xintercept = round(mean(data_NYC$price), 2), size = 2, linetype = 3)
+#Since the original distribution is very skewed, logarithmic transformation can be used to gain better insight into data.
+ggplot(data_NYC, aes(price)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
+  geom_density(alpha = 0.2, fill = "purple") +
+  ggtitle("Transformed distribution of price",
+          subtitle = expression("With" ~'log'[10] ~ "transformation of x-axis")) +
+  #theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_vline(xintercept = round(mean(data_NYC$price), 2), size = 2, linetype = 3) +
+  scale_x_log10() +
+  annotate("text", x = 1800, y = 0.75,label = paste("Mean price = ", paste0(round(mean(data_NYC$price), 2), "$")),
+           color =  "#32CD32", size = 8)
+```
+
+
+```{r New York City - Transformed Price Distribution by Neighborhood }
+airbnb_by_neighbourhood <- data_NYC %>%
+  group_by(neighbourhood_group) %>%
+  summarise(price = round(mean(price), 2))
+ggplot(data_NYC, aes(price)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
+  geom_density(alpha = 0.2, fill = "purple") +
+  ggtitle("Transformed distribution of price\n by neighbourhood groups",
+          subtitle = expression("With" ~'log'[10] ~ "transformation of x-axis")) +
+  geom_vline(data = airbnb_by_neighbourhood, aes(xintercept = price), size = 2, linetype = 3) +
+  geom_text(data = airbnb_by_neighbourhood,y = 1.5, aes(x = price + 1400, label = paste("Mean  = ",price)), color = "darkgreen", size = 4) +
+  facet_wrap(~neighbourhood_group) +
+  scale_x_log10()
+```
+
+
+```{r Above Average Price Objects by Neighourhood Areas}
+data_NYC %>% filter(price >= mean(price)) %>% group_by(neighbourhood_group, room_type) %>% tally %>% 
+  ggplot(aes(reorder(neighbourhood_group,desc(n)), n, fill = room_type)) +
+  xlab(NULL) +
+  ylab("Number of objects") +
+  ggtitle("Number of above average price objects",
+          subtitle = "Most of them are entire homes or apartments") +
+  geom_bar(stat = "identity")
+```
+
+```{r Observing number of properties by neighborhood group}
+# 
+n_airbnb_by_area <- data_NYC %>%
+  group_by(neighbourhood_group) %>%
+  count(room_type)
+ggplot(n_airbnb_by_area, aes(x = neighbourhood_group, y = n, fill = room_type)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  theme_classic() +
+  labs(title = "Number of Airbnb properties in NYC by neighborhood", subtitle = "", x = "Neighborhood", y = "Number of properties") +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+```{r Observing prices by property type and neighborhood group}
+# 
+ggplot(data_NYC) +
+  geom_point(aes(x = neighbourhood_group, y = price, color = room_type)) +
+  theme_classic() +
+  labs(title = "Airbnb pricing in NYC", subtitle = "Most expensive tend to be entire homes in Brooklyn & Manhattan", x = "Neighborhood", y = "Price") +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+```{r Mean Price Commaprison of Room types - NYC }
+data_NYC %>% 
+  filter(!(is.na(room_type))) %>% 
+  filter(!(room_type == "Unknown")) %>% 
+  group_by(room_type) %>% 
+  summarise(mean_price = mean(price, na.rm = TRUE)) %>% 
+  ggplot(aes(x = reorder(room_type, mean_price), y = mean_price, fill = room_type)) +
+  geom_col(stat ="identity", color = "black", fill="#357b8a") +
+  coord_flip() +
+  theme_gray() +
+  labs(x = "Room Type", y = "Price") +
+  geom_text(aes(label = round(mean_price,digit = 2)), hjust = 2.0, color = "white", size = 3.5) +
+  ggtitle("Mean Price comparison with all Room Types", subtitle = "Price vs Room Type") + 
+  xlab("Room Type") + 
+  ylab("Mean Price")
+```
+
+```{r Read in LA data set,echo=TRUE, warning=FALSE, message=FALSE, results = 'hide'}
+data_LA <- listings_LA
+summary(data_LA)
+glimpse(data_LA)
+dim(data_LA)
+summary(is.na(data_LA))
+```
+
+
+```{r Los Angeles - Price Distribution }
+ggplot(data_LA, aes(price)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
+  geom_density(alpha = 0.2, fill = "purple") +
+  ggtitle("Distribution of price",
+          subtitle = "The distribution is very skewed") +
+  theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_vline(xintercept = round(mean(data_LA$price), 2), size = 2, linetype = 3)
+#Since the original distribution is very skewed, logarithmic transformation can be used to gain better insight into data.
+ggplot(data_LA, aes(price)) +
+  geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
+  geom_density(alpha = 0.2, fill = "purple") +
+  ggtitle("Transformed distribution of price",
+          subtitle = expression("With" ~'log'[10] ~ "transformation of x-axis")) +
+  #theme(axis.title = element_text(), axis.title.x = element_text()) +
+  geom_vline(xintercept = round(mean(data_LA$price), 2), size = 2, linetype = 3) +
+  scale_x_log10() +
+  annotate("text", x = 1800, y = 0.75,label = paste("Mean price = ", paste0(round(mean(data_LA$price), 2), "$")),
+           color =  "#32CD32", size = 8)
+```
+
+
+```{r}
+data_LA %>% filter(price >= mean(price)) %>% group_by(neighbourhood_group, room_type) %>% tally %>% 
+  ggplot(aes(reorder(neighbourhood_group,desc(n)), n, fill = room_type)) +
+  xlab(NULL) +
+  ylab("Number of objects") +
+  ggtitle("Number of above average price objects",
+          subtitle = "Most of them are entire homes or apartments") +
+  geom_bar(stat = "identity")
+```
+
+
+```{r Statistical summary of pricing and property type by neighborhood group}
+data_LA %>%
+  group_by(neighbourhood_group) %>%
+  summarize(min_price = min(price), max_price = max(price), avg_price = mean(price))
+```
+
+
+```{r Mean Price comparison for each Neighbourhood Group - LA}
+data_LA %>% 
+  filter(!(is.na(neighbourhood_group))) %>% 
+  filter(!(neighbourhood_group == "Unknown")) %>% 
+  group_by(neighbourhood_group) %>% 
+  summarise(mean_price = mean(price, na.rm = TRUE)) %>% 
+  ggplot(aes(x = reorder(neighbourhood_group, mean_price), y = mean_price, fill = neighbourhood_group)) +
+  geom_col(stat ="identity", color = "black", fill="#357b8a") +
+  coord_flip() +
+  theme_gray() +
+  labs(x = "Neighbourhood Group", y = "Price") +
+  geom_text(aes(label = round(mean_price,digit = 2)), hjust = 2.0, color = "white", size = 3.5) +
+  ggtitle("Mean Price comparison for each Neighbourhood Group - LA", subtitle = "Price vs Neighbourhood Group") + 
+  xlab("Neighbourhood Group") + 
+  ylab("Mean Price") +
+  theme(legend.position = "none",
+        plot.title = element_text(color = "black", size = 14, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(color = "darkblue", hjust = 0.5),
+        axis.title.y = element_text(),
+        axis.title.x = element_text(),
+        axis.ticks = element_blank())
+```
