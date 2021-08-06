@@ -12,9 +12,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r install packages and libraries read in data, include=FALSE}
-install.packages('corrplot')
-install.packages(c('ggplot2','gganimate','gifski'))
-
 library(dplyr) 
 library(corrplot)
 library(plotly)
@@ -30,24 +27,28 @@ library(RCurl)
 library(gganimate)
 
 
-
-#read final dfs from github
-summarized_df <- read.csv(url("https://raw.githubusercontent.com/reecekoe11/lab_2_mrr/main/data/processed/summarized_df.csv"))
-covid_df <- read.csv(url("https://raw.githubusercontent.com/reecekoe11/lab_2_mrr/main/data/external/us-counties.csv"))
-final_df <- read.csv(url('https://raw.githubusercontent.com/reecekoe11/lab_2_mrr/main/data/processed/final_df.csv'))
-data_NYC <- read.csv(url('https://media.githubusercontent.com/media/reecekoe11/lab_2_mrr/main/data/external/listings_NY.csv'))
-data_LA <- read.csv(url('https://media.githubusercontent.com/media/reecekoe11/lab_2_mrr/main/data/external/listings_LA.csv'))
+setwd("/Users/rkoe/Desktop/lab_2_mrr")
+#read final dfs 
+summarized_df <- read_csv('data/processed/summarized_df.csv')
+covid_df <- read_csv('data/external/us-counties.csv')
+final_df <- read_csv('data/processed/final_df.csv')
+data_NYC <- read_csv('data/external/listingsNY.csv')
+data_LA <- read_csv('data/external/listingsLA.csv')
 ```
+
 # Introduction
 We are a group of data scientists looking to plan our next vacation. We know that over the last year with COVID, prices of rentals like Airbnb have been all over the place. We are interested in seeing how varying levels of reported COVID cases have affected price of Airbnb rentals over the last year in hopes that it will inform what we can expect for a summer vacation rental.
 
 ## Research Question
 The research question we will explore in this report is as follows: How have the price of AirBnB rentals in Los Angeles and New York been affected with varying availability and COVID-19 case counts?
+
 ### Hypotheses
 The null hypothesis for our research question is that there is no relationship between price of Airbnb rentals and reported covid cases. The alternate hypothesis is that cases do have an effect on price.
 
-#Exploratory Data Analysis
+# Exploratory Data Analysis
+
 We started by looking at the distribution of COVID cases across all U.S. counties over the past year. The distribution was left skewed but after a log transformation we were able to produce a more normal plot.
+
 ```{r EDA Mariah, warning = FALSE, echo = FALSE}
 ggplot(covid_df, aes(cases)) +
   geom_histogram(bins = 30, aes(y = ..density..), fill = "red") + 
@@ -61,7 +62,9 @@ ggplot(covid_df, aes(cases)) +
            color =  "#32CD32", size = 8)
 ```
 We then cut our analysis down to 5 cities and combined the data for Airbnb listings and COVID cases/deaths for each of the 5 cities. We discovered that New York and California had the highest number of cases and number of reviews of Airbnbs (or stays for purposes of this report) so we decided those two might be the most interesting to study. We also took a look at the number of cases and number of reviews over time for each of these 5 cities. *See cleaning file for animated graphs.*
-```{r static comparison graphs, warning = FALSE, echo= FALSE}
+
+
+```{r static comparison graphs, warning = FALSE, echo= FALSE, fig.height= 3}
 #graph num reviews
 summarized_df %>% ggplot(aes(Year.Month,Num_reviews,color=State,group = State))+geom_line()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+geom_vline(xintercept = "2020-01",linetype = "dotted", color = "red", size = 1.5)+annotate(geom = "vline",xintercept = "2020-01",linetype="dashed")+annotate(geom = "text",label="Month COVID-19 first arrived in US",x = "2020-01",y =25000, vjust =1,hjust= -.05,color = "red")
 
@@ -90,7 +93,7 @@ type options.
 
 
 
-```{r New York City- Price, echo=FALSE, warning=FALSE }
+```{r New York City- Price, echo=FALSE, warning=FALSE, fig.height= 3}
 ggplot(data_NYC, aes(price)) +
   geom_histogram(bins = 30, aes(y = ..density..), fill = "purple") + 
   geom_density(alpha = 0.2, fill = "purple") +
@@ -111,6 +114,7 @@ ggplot(data_NYC, aes(price)) +
            color =  "#32CD32", size = 8)
 ```
 
+
 ```{r Los Angeles - Price Distribution, echo=FALSE, warning=FALSE }
 #Since the original distribution is very skewed, logarithmic transformation can be used to gain better insight into data.
 ggplot(data_LA, aes(price)) +
@@ -124,6 +128,7 @@ ggplot(data_LA, aes(price)) +
   annotate("text", x = 1800, y = 0.75,label = paste("Mean price = ", paste0(round(mean(data_LA$price), 2), "$")),
            color =  "#32CD32", size = 8)
 ```
+
 
 ### Availability
 Airbnb has experienced a series of changes on to adapt for what it believes will 
@@ -140,9 +145,10 @@ into consideration for our model as instead of using the original variable
 availiabilty_365, we now could view availability within a 30-, 60-, and 
 90-day period. Based off of the varying ability, we can see how price would be 
 affected as Airbnb increased its flexibility as COVID-19 case counts fluctuated.
-According to AirDNA, demand for short-term rentals is expected to show a significant
+According to Airbnb, demand for short-term rentals is expected to show a significant
 recovery in 2021 as vaccines continue to roll out and pent-up demand accelerates 
 booking globally.
+
 
 ### Neighborhood
 Although neighborhood was not a factor we used in our final model, for our 
@@ -160,6 +166,8 @@ high hence explains the reason for having the highest percentage of listings.
 Additionally, when looking at the mean price breakdown by the neighborhood group, 
 we can see Manhattan having the highest price at $201.91 followed by Brooklyn 
 at $128.78. 
+
+
 
 ```{r Mean Price comparison for each Neighbourhood Group - NY, echo=FALSE, warning=FALSE}
 data_NYC %>% 
@@ -183,6 +191,7 @@ data_NYC %>%
         axis.title.x = element_text(),
         axis.ticks = element_blank())
 ```
+
 
 ```{r Mean Price comparison for each Neighbourhood Group - LA, echo=FALSE, warning=FALSE}
 data_LA %>% 
@@ -251,6 +260,7 @@ data_NYC %>%
   ylab("Mean Price")
 ```
 
+
 ```{r Mean Price comparison for each Room Type - LA, echo=FALSE, warning=FALSE}
 data_LA %>% 
   filter(!(is.na(room_type))) %>% 
@@ -298,10 +308,10 @@ This model included all of the numeric variables that were included in the datas
 full_model <- lm(log_price ~ host_is_superhost + log(bedrooms) + log_beds + log(accommodates) + availability_30 +  availability_60 + availability_90 + availability_365 + exp(review_scores_rating) + exp(review_scores_accuracy) + exp(review_scores_cleanliness)  + exp(review_scores_checkin) + exp(review_scores_communication) + exp(review_scores_location) + exp(review_scores_value) + log(num_reviews) + cases_30 + deaths_30 + cases_60 + deaths_60 + cases_90 + deaths_90 + NY_OHE, final_df) 
 ```
 
+\newpage
 
-
-``` {r model results}
-stargazer(limited_model, relevant_model, full_model, column.labels = c("Limited", "Relevant", "Full"), out ='regression_table.html', type='text', title= 'Regression Table', single.row = TRUE,  column.sep.width = "-15pt" )
+``` {r model results, results='asis'}
+stargazer(limited_model, relevant_model, full_model, column.labels = c("Limited", "Relevant", "Full"), title= 'Regression Table', type='html', align=TRUE )
 ```
 
 # Limitations of Our Models
